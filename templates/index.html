@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ingreso de Datos</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+</head>
+<body>
+    <div class="container mt-5">
+        <h1 class="text-center">Ingreso de Datos</h1>
+
+        <!-- Formulario para ingresar usuario y email -->
+        <div class="mb-3">
+            <label for="usuario" class="form-label">Usuario:</label>
+            <input type="text" class="form-control" id="usuario" placeholder="Ingrese su usuario">
+        </div>
+
+        <div class="mb-3">
+            <label for="email" class="form-label">Email:</label>
+            <input type="email" class="form-control" id="email" placeholder="Ingrese su email">
+        </div>
+
+        <!-- Botones -->
+        <div class="text-center">
+            <button class="btn btn-primary" onclick="insertarUsuario()">Enviar</button>
+            <button class="btn btn-danger" onclick="eliminarUsuario()">Eliminar</button>
+            <button class="btn btn-warning" onclick="editarUsuario()">Editar</button>
+            <button class="btn btn-success" onclick="guardarUsuario()">Guardar</button>
+            <button class="btn btn-secondary" onclick="cancelar()">Cancelar</button>
+        </div>
+
+        <!-- Tabla para mostrar datos -->
+        <div class="mt-5">
+            <table class="table table-striped" id="table">
+                <thead>
+                    <tr>
+                        <th scope="col">ID</th>
+                        <th scope="col">Usuario</th>
+                        <th scope="col">Email</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <!-- Iterar sobre los datos de la base de datos -->
+                    {% for usuario in usuarios %}
+                    <tr onclick="selectRow(this)">
+                        <td>{{ usuario.iddata }}</td>
+                        <td>{{ usuario.Usuario }}</td>
+                        <td>{{ usuario.Email }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        const oData = {
+            async insertarUsuario(usuario, email) {
+                const response = await fetch('/insertar_usuario', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ Usuario: usuario, Email: email })
+                });
+                return response.json();
+            },
+            async editarUsuario(id, usuario, email) {
+                const response = await fetch('/actualizar_usuario', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ iddata: id, Usuario: usuario, Email: email })
+                });
+                return response.json();
+            },
+            async eliminarUsuario(id) {
+                const response = await fetch('/eliminar_usuario', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ iddata: id })
+                });
+                return response.json();
+            },
+            async consultarUsuarios() {
+                const response = await fetch('/'); // Asegúrate de que esta ruta retorne todos los usuarios
+                if (!response.ok) {
+                    throw new Error('Network response was not ok');
+                }
+                return response.json();
+            }
+        };
+
+        async function llenarTabla() {
+            const tableBody = document.querySelector('#table tbody');
+            const usuarios = await oData.consultarUsuarios();
+            tableBody.innerHTML = ''; // Limpiar la tabla antes de llenarla
+            usuarios.forEach(usuario => {
+                const row = tableBody.insertRow();
+                row.onclick = function() { selectRow(this); }; // Agregar evento para seleccionar fila
+                row.innerHTML = `
+                    <td>${usuario.iddata}</td>
+                    <td>${usuario.Usuario}</td>
+                    <td>${usuario.Email}</td>
+                `;
+            });
+        }
+
+        function selectRow(row) {
+            const cells = row.getElementsByTagName('td');
+            document.getElementById('usuario').value = cells[1].textContent;
+            document.getElementById('email').value = cells[2].textContent;
+            document.getElementById('selectedId').value = cells[0].textContent; // Asume que tienes un campo oculto para el ID
+        }
+
+        async function insertarUsuario() {
+            const usuario = document.getElementById('usuario').value;
+            const email = document.getElementById('email').value;
+
+            if (usuario && email) {
+                const result = await oData.insertarUsuario(usuario, email);
+                if (result.status === 'Usuario insertado con éxito') {
+                    await llenarTabla();
+                    alert('El usuario se ha agregado correctamente...');
+                }
+            } else {
+                alert('Debe digitar los datos obligatorios...');
+            }
+        }
+
+        async function eliminarUsuario() {
+            const id = document.getElementById('selectedId').value; // Suponiendo que tienes un campo oculto para almacenar el ID
+            if (id) {
+                const confirmDelete = confirm(`¿Está seguro de eliminar el usuario con ID ${id}?`);
+                if (confirmDelete) {
+                    const result = await oData.eliminarUsuario(id);
+                    if (result.status === 'Usuario eliminado') {
+                        await llenarTabla();
+                        alert('Usuario eliminado...');
+                    } else {
+                        alert('No se pudo eliminar el usuario...');
+                    }
+                }
+            } else {
+                alert('Debes seleccionar un usuario...');
+            }
+        }
+
+        async function editarUsuario() {
+            const id = document.getElementById('selectedId').value; // Suponiendo que tienes un campo oculto para almacenar el ID
+            const usuario = document.getElementById('usuario').value;
+            const email = document.getElementById('email').value;
+
+            if (usuario && email && id) {
+                const result = await oData.editarUsuario(id, usuario, email);
+                if (result.status === 'Usuario actualizado') {
+                    await llenarTabla();
+                    alert('El usuario se ha actualizado correctamente...');
+                }
+            } else {
+                alert('Debes seleccionar un usuario y llenar los datos...');
+            }
+        }
+
+        function cancelar() {
+            document.getElementById('usuario').value = '';
+            document.getElementById('email').value = '';
+            document.getElementById('selectedId').value = ''; // Limpiar el ID
+        }
+
+        // Llenar la tabla al cargar la página
+        window.onload = llenarTabla;
+    </script>
+</body>
+</html>
